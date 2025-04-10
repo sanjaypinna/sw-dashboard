@@ -3,12 +3,17 @@
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { useInView } from "react-intersection-observer";
 import { useEffect, useState } from "react";
-import { Loader2 } from "lucide-react";
+import { Loader2, X } from "lucide-react";
 
 import { fetchStarships } from "@/lib/api";
 import { StarshipTable } from "@/components/starship-table";
 import { SearchBar } from "./search-bar";
 import { Filters } from "./filters";
+import { selectedStarshipsAtom } from "@/lib/atoms";
+import { useAtom } from "jotai";
+import { Starship } from "@/lib/types";
+import { Button } from "./ui/button";
+import { ComparisonModal } from "./comparison-modal";
 
 export function Dashboard() {
   const { ref, inView } = useInView();
@@ -16,6 +21,10 @@ export function Dashboard() {
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [hyperdriveFilter, setHyperdriveFilter] = useState<string | null>(null);
   const [crewSizeFilter, setCrewSizeFilter] = useState<string | null>(null);
+  const [selectedStarships, setSelectedStarships] = useAtom(
+    selectedStarshipsAtom
+  );
+  const [isComparing, setIsComparing] = useState(false);
 
   // Add debounce effect
   useEffect(() => {
@@ -99,17 +108,57 @@ export function Dashboard() {
 
     return true;
   });
+  const toggleStarshipSelection = (starship: Starship) => {
+    setSelectedStarships((prev) => {
+      const isSelected = prev.some((s) => s.name === starship.name);
+      if (isSelected) {
+        return prev.filter((s) => s.name !== starship.name);
+      } else {
+        if (prev.length < 3) {
+          return [...prev, starship];
+        }
+        return prev;
+      }
+    });
+  };
+
+  const resetComparison = () => {
+    setSelectedStarships([]);
+    setIsComparing(false);
+  };
 
   return (
     <div className="container mx-auto py-6 ">
       <div className="flex flex-col gap-4 mb-4">
         <SearchBar value={searchTerm} onChange={setSearchTerm} />
+        <div className=" flex flex-wrap lg:flex-nowrap  gap-4 w-full">
         <Filters
           hyperdriveFilter={hyperdriveFilter}
           crewSizeFilter={crewSizeFilter}
           onHyperdriveFilterChange={setHyperdriveFilter}
           onCrewSizeFilterChange={setCrewSizeFilter}
         />
+        {selectedStarships.length > 0 && (
+          <div className="flex gap-2 w-full">
+            <Button
+              onClick={() => setIsComparing(true)}
+              className="bg-amber-500 hover:bg-amber-600 text-black"
+            >
+              Compare {selectedStarships.length} Starship
+              {selectedStarships.length > 1 ? "s" : ""}
+            </Button>
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={resetComparison}
+              className="text-muted-foreground"
+            >
+              <X className="h-4 w-4" />
+              <span className="sr-only">Clear selection</span>
+            </Button>
+          </div>
+        )}
+        </div>
       </div>
       {status === "pending" ? (
         <div className="flex justify-center items-center h-64">
@@ -123,8 +172,8 @@ export function Dashboard() {
         <>
           <StarshipTable
             starships={filteredStarships}
-            selectedStarships={[]}
-            onToggleSelect={() => {}}
+            selectedStarships={selectedStarships}
+            onToggleSelect={toggleStarshipSelection}
           />
 
           {isFetchingNextPage ? (
@@ -139,6 +188,13 @@ export function Dashboard() {
             </p>
           )}
         </>
+      )}
+      {isComparing && (
+        <ComparisonModal
+          starships={selectedStarships}
+          isOpen={isComparing}
+          onClose={() => setIsComparing(false)}
+        />
       )}
     </div>
   );
