@@ -1,20 +1,28 @@
 "use client";
 
-import { useInfiniteQuery } from "@tanstack/react-query";
-import { useInView } from "react-intersection-observer";
-import { useEffect, useState } from "react";
 import { Loader2, X } from "lucide-react";
+import { useEffect, useState } from "react";
+import { useInView } from "react-intersection-observer";
 
-import { fetchStarships } from "@/lib/api";
 import { StarshipTable } from "@/components/starship-table";
-import { SearchBar } from "./search-bar";
-import { Filters } from "./filters";
+import { starWarsClient } from "@/lib/api";
 import { selectedStarshipsAtom } from "@/lib/atoms";
-import { useAtom } from "jotai";
 import { Starship } from "@/lib/types";
-import { Button } from "./ui/button";
+import { useAtom } from "jotai";
 import { ComparisonModal } from "./comparison-modal";
+import { Filters } from "./filters";
+import { SearchBar } from "./search-bar";
+import { Button } from "./ui/button";
+import { useInfiniteQuery } from "@tanstack/react-query";
 
+interface StarshipResponse {
+  next: string | null;
+  results: Starship[];
+}
+interface ApiResponse {
+  status: number;
+  body?: StarshipResponse;
+}
 export function Dashboard() {
   const { ref, inView } = useInView();
   const [searchTerm, setSearchTerm] = useState("");
@@ -43,14 +51,41 @@ export function Dashboard() {
     error,
   } = useInfiniteQuery({
     queryKey: ["starships", debouncedSearch],
-    queryFn: ({ pageParam }) =>
-      fetchStarships({ page: pageParam, search: debouncedSearch }),
+    queryFn: async ({ pageParam = 1 }) => {
+      const response = await starWarsClient.getStarships.query({
+        query: {
+          page: pageParam.toString(),
+          search: debouncedSearch,
+        },
+      });
+
+      if (response.status === 200) {
+        return {
+          status: response.status,
+          body: response.body as StarshipResponse,
+        };
+      }
+
+      return {
+        status: response.status,
+        body: undefined,
+      };
+    },
     initialPageParam: 1,
-    getNextPageParam: (lastPage) => {
-      if (lastPage.next) {
-        const url = new URL(lastPage.next);
-        const page = url.searchParams.get("page");
-        return page ? Number.parseInt(page) : undefined;
+    getNextPageParam: (lastPage: ApiResponse) => {
+      try {
+        if (lastPage.status === 200 && lastPage.body?.next) {
+          // Handle both absolute and relative URLs
+          const urlString = lastPage.body.next;
+          const url = urlString.startsWith("http")
+            ? new URL(urlString)
+            : new URL(urlString, window.location.origin);
+
+          const page = url.searchParams.get("page");
+          return page ? parseInt(page, 10) : undefined;
+        }
+      } catch (error) {
+        console.error("Error parsing next page URL:", error);
       }
       return undefined;
     },
@@ -63,10 +98,17 @@ export function Dashboard() {
     }
   }, [inView, fetchNextPage, hasNextPage, isFetchingNextPage]);
 
-  const allStarships = data?.pages.flatMap((page) => page.results) || [];
+  //  access pages
+  const allStarships =
+    data?.pages.flatMap((page) => {
+      if (page.status === 200 && page.body && "results" in page.body) {
+        return page.body.results;
+      }
+      return [];
+    }) || [];
 
   // Apply filters to starships
-  const filteredStarships = allStarships.filter((starship) => {
+  const filteredStarships = allStarships.filter((starship: Starship) => {
     if (hyperdriveFilter && hyperdriveFilter !== "all") {
       const rating = parseFloat(starship.hyperdrive_rating);
       switch (hyperdriveFilter) {
@@ -132,32 +174,32 @@ export function Dashboard() {
       <div className="flex flex-col gap-4 mb-4">
         <SearchBar value={searchTerm} onChange={setSearchTerm} />
         <div className=" flex flex-wrap lg:flex-nowrap  gap-4 w-full">
-        <Filters
-          hyperdriveFilter={hyperdriveFilter}
-          crewSizeFilter={crewSizeFilter}
-          onHyperdriveFilterChange={setHyperdriveFilter}
-          onCrewSizeFilterChange={setCrewSizeFilter}
-        />
-        {selectedStarships.length > 0 && (
-          <div className="flex gap-2 w-full">
-            <Button
-              onClick={() => setIsComparing(true)}
-              className="bg-amber-500 hover:bg-amber-600 text-black"
-            >
-              Compare {selectedStarships.length} Starship
-              {selectedStarships.length > 1 ? "s" : ""}
-            </Button>
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={resetComparison}
-              className="text-muted-foreground"
-            >
-              <X className="h-4 w-4" />
-              <span className="sr-only">Clear selection</span>
-            </Button>
-          </div>
-        )}
+          <Filters
+            hyperdriveFilter={hyperdriveFilter}
+            crewSizeFilter={crewSizeFilter}
+            onHyperdriveFilterChange={setHyperdriveFilter}
+            onCrewSizeFilterChange={setCrewSizeFilter}
+          />
+          {selectedStarships.length > 0 && (
+            <div className="flex gap-2 w-full">
+              <Button
+                onClick={() => setIsComparing(true)}
+                className="bg-amber-500 hover:bg-amber-600 text-black"
+              >
+                Compare {selectedStarships.length} Starship
+                {selectedStarships.length > 1 ? "s" : ""}
+              </Button>
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={resetComparison}
+                className="text-muted-foreground"
+              >
+                <X className="h-4 w-4" />
+                <span className="sr-only">Clear selection</span>
+              </Button>
+            </div>
+          )}
         </div>
       </div>
       {status === "pending" ? (
@@ -166,7 +208,7 @@ export function Dashboard() {
         </div>
       ) : status === "error" ? (
         <div className="p-4 border border-red-300 bg-red-50 text-red-700 rounded-md">
-          Error: {(error as Error).message}
+          Error: {(error as unknown as Error).message}
         </div>
       ) : (
         <>
