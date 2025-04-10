@@ -1,8 +1,9 @@
 "use client";
 
 import { Loader2, X } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useInView } from "react-intersection-observer";
+import { useSearchParams, usePathname, useRouter } from "next/navigation";
 
 import { StarshipTable } from "@/components/starship-table";
 import { starWarsClient } from "@/lib/api";
@@ -23,25 +24,90 @@ interface ApiResponse {
   status: number;
   body?: StarshipResponse;
 }
+
 export function Dashboard() {
+  // Router and search params
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+
+  // Get initial state from URL params
+  const initialSearch = searchParams.get("search") || "";
+  const initialHyperdriveFilter = searchParams.get("hyperdrive") || null;
+  const initialCrewSizeFilter = searchParams.get("crew") || null;
+  const initialComparison = searchParams.get("comparing") === "true";
+  const initialSelectedIds = searchParams.get("selected")?.split(",") || [];
+
+  // State variables
   const { ref, inView } = useInView();
-  const [searchTerm, setSearchTerm] = useState("");
-  const [debouncedSearch, setDebouncedSearch] = useState("");
-  const [hyperdriveFilter, setHyperdriveFilter] = useState<string | null>(null);
-  const [crewSizeFilter, setCrewSizeFilter] = useState<string | null>(null);
+  const [searchTerm, setSearchTerm] = useState(initialSearch);
+  const [debouncedSearch, setDebouncedSearch] = useState(initialSearch);
+  const [hyperdriveFilter, setHyperdriveFilter] = useState<string | null>(
+    initialHyperdriveFilter
+  );
+  const [crewSizeFilter, setCrewSizeFilter] = useState<string | null>(
+    initialCrewSizeFilter
+  );
   const [selectedStarships, setSelectedStarships] = useAtom(
     selectedStarshipsAtom
   );
-  const [isComparing, setIsComparing] = useState(false);
+  const [isComparing, setIsComparing] = useState(initialComparison);
 
-  // Add debounce effect
+  // Function to update URL with current state
+  const updateURL = (params: Record<string, string | null>) => {
+    const newParams = new URLSearchParams(searchParams.toString());
+
+    // Update or remove each parameter
+    Object.entries(params).forEach(([key, value]) => {
+      if (value === null || value === "") {
+        newParams.delete(key);
+      } else {
+        newParams.set(key, value);
+      }
+    });
+
+    // Build the new URL
+    const newURL =
+      pathname + (newParams.toString() ? `?${newParams.toString()}` : "");
+    router.replace(newURL, { scroll: false });
+  };
+
+  // Add debounce effect for search
   useEffect(() => {
     const timer = setTimeout(() => {
       setDebouncedSearch(searchTerm);
+      // Update URL when search changes
+      updateURL({ search: searchTerm || null });
     }, 500);
     return () => clearTimeout(timer);
   }, [searchTerm]);
 
+  // Update URL when filters change
+  useEffect(() => {
+    updateURL({
+      hyperdrive: hyperdriveFilter,
+      crew: crewSizeFilter,
+    });
+  }, [hyperdriveFilter, crewSizeFilter]);
+
+  // Update URL when comparison state changes
+  useEffect(() => {
+    updateURL({
+      comparing: isComparing ? "true" : null,
+    });
+  }, [isComparing]);
+
+  // Update URL when selected starships change
+  useEffect(() => {
+    if (selectedStarships.length > 0) {
+      const selectedIds = selectedStarships.map((ship) => ship.name).join(",");
+      updateURL({ selected: selectedIds });
+    } else {
+      updateURL({ selected: null });
+    }
+  }, [selectedStarships]);
+
+  // Fetch starships data
   const {
     data,
     fetchNextPage,
@@ -98,7 +164,7 @@ export function Dashboard() {
     }
   }, [inView, fetchNextPage, hasNextPage, isFetchingNextPage]);
 
-  //  access pages
+  // Access pages
   const allStarships =
     data?.pages.flatMap((page) => {
       if (page.status === 200 && page.body && "results" in page.body) {
@@ -106,6 +172,27 @@ export function Dashboard() {
       }
       return [];
     }) || [];
+
+  // Initialize selected starships from URL on first data load
+  const hasInitializedSelection = useRef(false);
+
+  useEffect(() => {
+    if (
+      !hasInitializedSelection.current &&
+      allStarships.length > 0 &&
+      initialSelectedIds.length > 0 &&
+      selectedStarships.length === 0
+    ) {
+      const starshipsToSelect = allStarships
+        .filter((ship) => initialSelectedIds.includes(ship.name))
+        .slice(0, 3);
+
+      if (starshipsToSelect.length > 0) {
+        setSelectedStarships(starshipsToSelect);
+        hasInitializedSelection.current = true;
+      }
+    }
+  }, [allStarships, initialSelectedIds]);
 
   // Apply filters to starships
   const filteredStarships = allStarships.filter((starship: Starship) => {
@@ -150,6 +237,7 @@ export function Dashboard() {
 
     return true;
   });
+
   const toggleStarshipSelection = (starship: Starship) => {
     setSelectedStarships((prev) => {
       const isSelected = prev.some((s) => s.name === starship.name);
@@ -165,8 +253,12 @@ export function Dashboard() {
   };
 
   const resetComparison = () => {
-    setSelectedStarships([]);
+    setSelectedStarships([]); // Reset selected starships
     setIsComparing(false);
+    // Update URL to remove comparison and selected params
+    updateURL({
+      selected: null,
+    });
   };
 
   return (
