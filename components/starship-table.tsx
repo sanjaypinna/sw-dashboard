@@ -1,23 +1,34 @@
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Checkbox } from "@/components/ui/checkbox"
-import type { Starship } from "@/lib/types"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Checkbox } from "@/components/ui/checkbox";
+import type { Starship } from "@/lib/types";
 
 interface StarshipTableProps {
-  starships: Starship[]
-  selectedStarships: Starship[]
-  onToggleSelect: (starship: Starship) => void
+  starships: Starship[];
+  selectedStarships: Starship[];
+  onToggleSelect: (starship: Starship) => void;
 }
 
-export function StarshipTable({ starships, selectedStarships, onToggleSelect }: StarshipTableProps) {
+export function StarshipTable({
+  starships,
+  selectedStarships,
+  onToggleSelect,
+}: StarshipTableProps) {
   return (
-    <div className="border rounded-lg overflow-hidden">
+    <div className="border rounded-lg  ">
       <Table>
         <TableHeader>
           <TableRow className="bg-muted/50">
-            <TableHead className="w-[50px]"></TableHead>
+            <TableHead></TableHead>
             <TableHead>Name</TableHead>
-            <TableHead className="hidden md:table-cell">Model</TableHead>
-            <TableHead className="hidden lg:table-cell">Manufacturer</TableHead>
+            <TableHead>Model</TableHead>
+            <TableHead>Manufacturer</TableHead>
             <TableHead>Crew</TableHead>
             <TableHead>Hyperdrive</TableHead>
           </TableRow>
@@ -31,10 +42,17 @@ export function StarshipTable({ starships, selectedStarships, onToggleSelect }: 
             </TableRow>
           ) : (
             starships.map((starship) => {
-              const isSelected = selectedStarships.some((s) => s.name === starship.name)
+              const isSelected = selectedStarships.some(
+                (s) => s.name === starship.name
+              );
 
               return (
-                <TableRow key={starship.name} className={isSelected ? "bg-amber-50 dark:bg-amber-950/20" : ""}>
+                <TableRow
+                  key={starship.name}
+                  className={
+                    isSelected ? "bg-amber-50 dark:bg-amber-950/20" : ""
+                  }
+                >
                   <TableCell>
                     <Checkbox
                       checked={isSelected}
@@ -42,17 +60,17 @@ export function StarshipTable({ starships, selectedStarships, onToggleSelect }: 
                       disabled={selectedStarships.length >= 3 && !isSelected}
                     />
                   </TableCell>
-                  <TableCell className="font-medium">{starship.name}</TableCell>
-                  <TableCell className="hidden md:table-cell">{starship.model}</TableCell>
-                  <TableCell className="hidden lg:table-cell max-w-[200px] truncate">{starship.manufacturer}</TableCell>
+                  <TableCell>{starship.name}</TableCell>
+                  <TableCell>{starship.model}</TableCell>
+                  <TableCell>{starship.manufacturer}</TableCell>
                   <TableCell>{starship.crew}</TableCell>
                   <TableCell>{starship.hyperdrive_rating}</TableCell>
                 </TableRow>
-              )
+              );
             })
           )}
         </TableBody>
       </Table>
     </div>
-  )
+  );
 }
