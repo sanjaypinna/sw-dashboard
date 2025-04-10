@@ -36,7 +36,7 @@ export function Filters({
   onCrewSizeFilterChange,
 }: FiltersProps) {
   return (
-    <div className="flex flex-col sm:flex-row gap-4">
+    <div className="flex flex-col sm:flex-row w-full gap-4">
       <div className="flex-1">
         <Select
           value={hyperdriveFilter || ""}
