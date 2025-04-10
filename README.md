@@ -39,7 +39,7 @@ node -v # v18.x or higher required
 
 1. Clone the repository:
 ```bash
-git clone https://github.com/yourusername/sw-dashboard.git
+git clone https://github.com/sanjaypinna/sw-dashboard.git
 cd sw-dashboard
 ```
 
@@ -154,7 +154,5 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 5. Open a Pull Request
 
 ## 📫 Contact
-
-Your Name - [@sanjaypinna](sanjaypinna265@gmail.com)
 
 Project Link: [https://github.com/sanjaypinna/sw-dashboard](https://github.com/sanjaypinna/sw-dashboard)
