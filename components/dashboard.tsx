@@ -8,11 +8,14 @@ import { Loader2 } from "lucide-react";
 import { fetchStarships } from "@/lib/api";
 import { StarshipTable } from "@/components/starship-table";
 import { SearchBar } from "./search-bar";
+import { Filters } from "./filters";
 
 export function Dashboard() {
   const { ref, inView } = useInView();
   const [searchTerm, setSearchTerm] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [hyperdriveFilter, setHyperdriveFilter] = useState<string | null>(null);
+  const [crewSizeFilter, setCrewSizeFilter] = useState<string | null>(null);
 
   // Add debounce effect
   useEffect(() => {
@@ -21,6 +24,7 @@ export function Dashboard() {
     }, 500);
     return () => clearTimeout(timer);
   }, [searchTerm]);
+
   const {
     data,
     fetchNextPage,
@@ -50,12 +54,63 @@ export function Dashboard() {
     }
   }, [inView, fetchNextPage, hasNextPage, isFetchingNextPage]);
 
-  const starships = data?.pages.flatMap((page) => page.results) || [];
+  const allStarships = data?.pages.flatMap((page) => page.results) || [];
+
+  // Apply filters to starships
+  const filteredStarships = allStarships.filter((starship) => {
+    if (hyperdriveFilter && hyperdriveFilter !== "all") {
+      const rating = parseFloat(starship.hyperdrive_rating);
+      switch (hyperdriveFilter) {
+        case "lt1":
+          if (!(rating < 1.0)) return false;
+          break;
+        case "1to2":
+          if (!(rating >= 1.0 && rating <= 2.0)) return false;
+          break;
+        case "gt2":
+          if (!(rating > 2.0)) return false;
+          break;
+      }
+    }
+
+    if (crewSizeFilter && crewSizeFilter !== "all") {
+      const crewText = starship.crew.replace(/,/g, "");
+      let crewSize = 0;
+
+      if (crewText.includes("-")) {
+        const [min, max] = crewText.split("-").map((n) => parseInt(n.trim()));
+        crewSize = Math.floor((min + max) / 2);
+      } else {
+        crewSize = parseInt(crewText) || 0;
+      }
+
+      switch (crewSizeFilter) {
+        case "1to5":
+          if (!(crewSize >= 1 && crewSize <= 5)) return false;
+          break;
+        case "6to50":
+          if (!(crewSize >= 6 && crewSize <= 50)) return false;
+          break;
+        case "gt50":
+          if (!(crewSize > 50)) return false;
+          break;
+      }
+    }
+
+    return true;
+  });
 
   return (
-    <div className="container mx-auto py-6 space-y-6">
-      <SearchBar value={searchTerm} onChange={setSearchTerm} />
-
+    <div className="container mx-auto py-6 ">
+      <div className="flex flex-col gap-4 mb-4">
+        <SearchBar value={searchTerm} onChange={setSearchTerm} />
+        <Filters
+          hyperdriveFilter={hyperdriveFilter}
+          crewSizeFilter={crewSizeFilter}
+          onHyperdriveFilterChange={setHyperdriveFilter}
+          onCrewSizeFilterChange={setCrewSizeFilter}
+        />
+      </div>
       {status === "pending" ? (
         <div className="flex justify-center items-center h-64">
           <Loader2 className="h-8 w-8 animate-spin text-amber-500" />
@@ -67,7 +122,7 @@ export function Dashboard() {
       ) : (
         <>
           <StarshipTable
-            starships={starships}
+            starships={filteredStarships}
             selectedStarships={[]}
             onToggleSelect={() => {}}
           />
