@@ -1,48 +1,60 @@
-"use client"
+"use client";
 
-import { useInfiniteQuery } from "@tanstack/react-query"
-import { useInView } from "react-intersection-observer"
-import { useEffect } from "react"
-import { Loader2 } from "lucide-react"
+import { useInfiniteQuery } from "@tanstack/react-query";
+import { useInView } from "react-intersection-observer";
+import { useEffect, useState } from "react";
+import { Loader2 } from "lucide-react";
 
-import { fetchStarships } from "@/lib/api"
-import { StarshipTable } from "@/components/starship-table"
+import { fetchStarships } from "@/lib/api";
+import { StarshipTable } from "@/components/starship-table";
+import { SearchBar } from "./search-bar";
 
 export function Dashboard() {
-  const { ref, inView } = useInView()
+  const { ref, inView } = useInView();
+  const [searchTerm, setSearchTerm] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
 
-  const { 
-    data, 
-    fetchNextPage, 
-    hasNextPage, 
-    isFetchingNextPage, 
-    status, 
-    error 
+  // Add debounce effect
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchTerm);
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
+  const {
+    data,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+    status,
+    error,
   } = useInfiniteQuery({
-    queryKey: ["starships"],
-    queryFn: ({ pageParam }) => fetchStarships({ page: pageParam }),
+    queryKey: ["starships", debouncedSearch],
+    queryFn: ({ pageParam }) =>
+      fetchStarships({ page: pageParam, search: debouncedSearch }),
     initialPageParam: 1,
     getNextPageParam: (lastPage) => {
       if (lastPage.next) {
-        const url = new URL(lastPage.next)
-        const page = url.searchParams.get("page")
-        return page ? Number.parseInt(page) : undefined
+        const url = new URL(lastPage.next);
+        const page = url.searchParams.get("page");
+        return page ? Number.parseInt(page) : undefined;
       }
-      return undefined
+      return undefined;
     },
-  })
+  });
 
   // Load more when scrolling to the bottom
   useEffect(() => {
     if (inView && hasNextPage && !isFetchingNextPage) {
-      fetchNextPage()
+      fetchNextPage();
     }
-  }, [inView, fetchNextPage, hasNextPage, isFetchingNextPage])
+  }, [inView, fetchNextPage, hasNextPage, isFetchingNextPage]);
 
-  const starships = data?.pages.flatMap((page) => page.results) || []
+  const starships = data?.pages.flatMap((page) => page.results) || [];
 
   return (
     <div className="container mx-auto py-6 space-y-6">
+      <SearchBar value={searchTerm} onChange={setSearchTerm} />
 
       {status === "pending" ? (
         <div className="flex justify-center items-center h-64">
@@ -65,7 +77,7 @@ export function Dashboard() {
               <Loader2 className="h-6 w-6 animate-spin text-amber-500" />
             </div>
           ) : hasNextPage ? (
-            <div ref={ref} className="h-10" /> 
+            <div ref={ref} className="h-10" />
           ) : (
             <p className="text-center text-muted-foreground py-4">
               No more starships to load
@@ -74,5 +86,5 @@ export function Dashboard() {
         </>
       )}
     </div>
-  )
+  );
 }
