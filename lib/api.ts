@@ -65,7 +65,7 @@ export const starWarsClient = initQueryClient(starWarsContract, {
     "Content-Type": "application/json",
   },
   api: async ({ path, method, query }: { path: string; method: string; query?: Record<string, string> }) => {
-    const url = new URL(path, "https://swapi.dev")
+    const url = new URL(path, "http://swapi.dev")
 
     if (query) {
       Object.entries(query).forEach(([key, value]) => {
