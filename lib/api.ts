@@ -60,7 +60,7 @@ export const swapiContract = c.router({
 
 // Create the query client
 export const starWarsClient = initQueryClient(starWarsContract, {
-  baseUrl: "https://swapi.dev",
+  baseUrl: "http://swapi.dev",
   baseHeaders: {
     "Content-Type": "application/json",
   },
